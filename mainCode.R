@@ -1,8 +1,8 @@
 library("png")
 #library("colorspace")
-x <- readPNG("./Images/01.png", native=FALSE)
+path<-"./Images/01.png"
+x <- readPNG(path, native=FALSE)
 # Black0
-# Brown1
 C1 = c(153, 102, 51)
 C2 = c(255, 0, 0)
 C3 = c(255, 153, 0)
@@ -148,7 +148,15 @@ compress<-function(Intake){
   return(Eout)
 }
 
-
+linfit<-function(MatIn){
+  MatIn=y
+  mapI<-data.frame()
+  for(i in 1:9){
+   i=1
+   mapI<-which(MatIn == i,arr.ind = TRUE)
+  }
+  print(mapI)
+}
 
 
 
@@ -166,13 +174,5 @@ main<-function(PNGin){
   #linfit(Comp)
   return(Comp)
 }
-#y=main(x)
-#linfit<-function(MatIn){
+y=main(x)
 MatIn=y
-#mapI<-data.frame()
-#for(i in 1:9){
-i=8
-mapI<-which(MatIn == i,arr.ind = TRUE)
-#}
-print(mapI)
-#}
