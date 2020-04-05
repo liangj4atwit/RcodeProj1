@@ -1,21 +1,27 @@
 library("png")
 #library("colorspace")
-path<-"./Images/01.png"
-x <- readPNG(path, native=FALSE)
-# Black0
-C1 = c(153, 102, 51)
-C2 = c(255, 0, 0)
-C3 = c(255, 153, 0)
-C4 = c(255, 255, 0)
-C5 = c(0, 255, 00)
-C6 = c(0, 0, 255)
-C7 = c(255, 0, 255)
-C8 = c(204, 204, 204)
-C9 = c(255, 255, 255)
-#C0 = c(0, 0, 0)
-#COLORCODE=rbind(C1,C2,C3,C4,C5,C6,C7,C8,C9,C0)
-COLORCODE=rbind(C1,C2,C3,C4,C5,C6,C7,C8,C9)
 
+#The goal is to identify color of images, data set are in ARSS/ColorID/Data, Classification refence is List.csv
+#IdCC and isColor are the two functions to work on.
+
+#Read Image
+#path<-"Put Path Here"
+x <- readPNG(path, native=FALSE)
+# These are the RGB values 
+Bk = c(0,0,0)
+Br = c(153, 102, 51)
+Re = c(255, 0, 0)
+Or = c(255, 153, 0)
+Ye = c(255, 255, 0)
+Gr = c(0, 255, 00)
+Bl = c(0, 0, 255)
+Vi = c(255, 0, 255)
+Gy = c(204, 204, 204)
+Go = c(205, 205, 166)
+Sy = c(228,228,228)
+#Make Data Frame
+COLORCODE=rbind(Bk,Br,Re,Or,Ye,Gr,Bl,Vi,Gy,Go,Sy)
+#Check Image Direction
 checkDirImg<-function(imageIn){
   nr=nrow(imageIn)
   nc=ncol(imageIn)
@@ -32,6 +38,7 @@ checkDirImg<-function(imageIn){
     return(CrImg)
   }
 }
+#Convert From Image To Matrix
 covMat<-function(inImg){
   nr=nrow(inImg)
   nc=ncol(inImg)
@@ -53,8 +60,9 @@ covMat<-function(inImg){
   return(Orgb)
 }
 
-
+#Check If Color Matches
 isColor<-function(Tv,Rv,ERR){
+  #If fit in range, then its true
   if((Rv[1]-ERR[1])>Tv[1]){
     return(FALSE)
   }
@@ -76,29 +84,31 @@ isColor<-function(Tv,Rv,ERR){
   return(TRUE)
 }
 
-
+#Identify Color Code
 IdCC<-function(MatIn){
+  #Standard Error include to provide a range of fitting
   SDerr=c(sd(MatIn[,,1]),sd(MatIn[,,2]),sd(MatIn[,,3]))/25.5
   SDerr=round(SDerr)
-  print(SDerr)
   nr=nrow(MatIn)
   nc=ncol(MatIn)
+  #Make NA Matrix
   CCMat=matrix(NA,nr,nc)
   for(i in 1:nr){
     for(j in 1:nc){
-      for (C in 1:9) {
+      for (C in 1:11) {
         if(isColor(MatIn[i,j,],COLORCODE[C,],SDerr)){
           CCMat[i,j]=C
         }
       }
     }
   }
+  #It should return an NA matrix with all identidied pixels to its tag
   return(CCMat)
 }
 
 
 
-
+#Compress Image
 compress<-function(Intake){
   nr=nrow(Intake)
   nc=ncol(Intake)
@@ -165,14 +175,13 @@ linfit<-function(MatIn){
 
 
 
-
+#Main
 main<-function(PNGin){
   rgbI=covMat(PNGin)
   rgbI=checkDirImg(rgbI)
   CLRMat=IdCC(rgbI)
-  Comp=compress(CLRMat)
+  #Comp=compress(CLRMat)
   #linfit(Comp)
-  return(Comp)
+  return(rgbI)
 }
-y=main(x)
-MatIn=y
+
