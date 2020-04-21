@@ -1,187 +1,196 @@
-library("png")
-#library("colorspace")
-
-#The goal is to identify color of images, data set are in ARSS/ColorID/Data, Classification refence is List.csv
-#IdCC and isColor are the two functions to work on.
-
-#Read Image
-#path<-"Put Path Here"
-x <- readPNG(path, native=FALSE)
-# These are the RGB values 
-Bk = c(0,0,0)
-Br = c(153, 102, 51)
-Re = c(255, 0, 0)
-Or = c(255, 153, 0)
-Ye = c(255, 255, 0)
-Gr = c(0, 255, 00)
-Bl = c(0, 0, 255)
-Vi = c(255, 0, 255)
-Gy = c(204, 204, 204)
-Go = c(205, 205, 166)
-Sy = c(228,228,228)
-#Make Data Frame
-COLORCODE=rbind(Bk,Br,Re,Or,Ye,Gr,Bl,Vi,Gy,Go,Sy)
-#Check Image Direction
-checkDirImg<-function(imageIn){
-  nr=nrow(imageIn)
-  nc=ncol(imageIn)
-  if(nr<nc){
-    return(imageIn)
-  }
-  else{
-    CrImg=array(dim =c( nc,nr,3))
-    for(i in 1:nr){
-      for(j in 1:nc){
-        CrImg[j,i,]=imageIn[i,j,]
-      }
-    }
-    return(CrImg)
-  }
-}
-#Convert From Image To Matrix
-covMat<-function(inImg){
-  nr=nrow(inImg)
-  nc=ncol(inImg)
-  r=inImg[,,1]
-  g=inImg[,,2]
-  b=inImg[,,3]
-  a=inImg[,,4]
-  Mrgb=rgb(r,g,b,a)
-  Orgb=array(dim =c( nr,nc,3))
-  for(i in 1:nr){
-    for(j in 1:nc){
-      temp=rgb(r[i,j],g[i,j],b[i,j],a[i,j])
-      tempC=col2rgb(temp)
-      Orgb[i,j,1]=tempC[1]
-      Orgb[i,j,2]=tempC[2]
-      Orgb[i,j,3]=tempC[3]
-    }
-  }
-  return(Orgb)
-}
-
-#Check If Color Matches
-isColor<-function(Tv,Rv,ERR){
-  #If fit in range, then its true
-  if((Rv[1]-ERR[1])>Tv[1]){
-    return(FALSE)
-  }
-  if((Rv[2]-ERR[2])>Tv[2]){
-    return(FALSE)
-  }
-  if((Rv[3]-ERR[3])>Tv[3]){
-    return(FALSE)
-  }
-  if((Rv[1]+ERR[1])<Tv[1]){
-    return(FALSE)
-  }
-  if((Rv[2]+ERR[2])<Tv[2]){
-    return(FALSE)
-  }
-  if((Rv[3]+ERR[3])<Tv[3]){
-    return(FALSE)
-  }
-  return(TRUE)
-}
-
-#Identify Color Code
-IdCC<-function(MatIn){
-  #Standard Error include to provide a range of fitting
-  SDerr=c(sd(MatIn[,,1]),sd(MatIn[,,2]),sd(MatIn[,,3]))/25.5
-  SDerr=round(SDerr)
-  nr=nrow(MatIn)
-  nc=ncol(MatIn)
-  #Make NA Matrix
-  CCMat=matrix(NA,nr,nc)
-  for(i in 1:nr){
-    for(j in 1:nc){
-      for (C in 1:11) {
-        if(isColor(MatIn[i,j,],COLORCODE[C,],SDerr)){
-          CCMat[i,j]=C
-        }
-      }
-    }
-  }
-  #It should return an NA matrix with all identidied pixels to its tag
-  return(CCMat)
-}
+#Before Start----
+textDisp=
+"Befor using the code:
+1. Check working directory, it will save a model in the current working directory
+2. Check TensorFlow and Keras installations.
+------------------------------------"
+cat(textDisp)
+textDisp=
+"Enviroment for the project:
+TensorFlow and Keras Lib require additional steps of instalation.
+run >install_tensorflow() and >install_keras() after include lib by >library(tensorflow)
+This also apply to keras backend.
+------------------------------------"
+cat(textDisp)
 
 
+#Enviroment Check----
+textDisp=
+  "Checking enviroment, it will print out:
+tf.Tensor(b'TensorFlow Enviroment Test', shape=(), dtype=string)
+in the command line, if not, please see the instruction on TensorFLow R for installation link:
+https://tensorflow.rstudio.com/installation/
+------------------------------------"
+cat(textDisp)
+library(tensorflow)
+library(keras)
+tf$constant("TensorFlow Enviroment Test")
 
-#Compress Image
-compress<-function(Intake){
-  nr=nrow(Intake)
-  nc=ncol(Intake)
-  rmr<-data.frame()
-  rmc<-data.frame()
-  RT=FALSE
-  CT=FALSE
-  for(indi in 1:nr){
-    Rtemp=FALSE
-    for(indj in 1:nc){
-      if(is.na(Intake[indi,indj])){
-        Rtemp=TRUE
-        RT=TRUE
-      }
-    }
-  }
-  if(Rtemp){
-    rmr=c(rmr,indi)
-  }
+
+#Load Data----
+#For the project, CIFAR was used for both training and testing, 
+#CIFAR-100 have 20 superclass and 10 classes under each superclass
+#Load as superclass
+#The reason that uses CIFAR instead of resistor is beacuse the lack of file IO support in R.
+#Relabele everything into .tfrecord format will take too long to process.
+#Read CIFAR data set
+#It will take some time to download(If not downloaded).
+#It takes some time to load the data.
+textDisp=
+"Loading dataset, it's going to download from internet so it will take a wile for the first run,
+also the size is kind of large so it might take some extra time to load.
+------------------------------------"
+cat(textDisp)
+cifar <- dataset_cifar100(label_mode = "coarse")
+textDisp=
+"Dataset loaded
+------------------------------------"
+cat(textDisp)
+textDisp=
+"Defining classes
+------------------------------------"
+cat(textDisp)
+class_names <- c('aquatic mammals', 'fish', 'flowers', 'food containers', 'fruit and vegetables',
+                 'household electrical devices', 'household furniture', 'insects', 'large carnivores', 
+                 'large man-made outdoor things','large natural outdoor scenes','large omnivores and herbivores',
+                 'medium-sized mammals','non-insect invertebrates','people','reptiles','small mammals','trees',
+                 'vehicles 1','vehicles 2')
+textDisp=
+"Class rename's done
+------------------------------------"
+cat(textDisp)
+
+
+#Data Inspection----
+#Data Inspection by viewing the first 30 images
+textDisp=
+"Plot the first 30 images from the training set
+------------------------------------"
+cat(textDisp)
+index <- 1:30
+#Parameter for ploting
+par(mfcol = c(5,6), mar = rep(1, 4), oma = rep(0.2, 4))
+#This load the first 30 images and take some time.
+cifar$train$x[index,,,] %>% 
+  purrr::array_tree(1) %>%
+  purrr::set_names(class_names[cifar$train$y[index] + 1]) %>% 
+  purrr::map(as.raster, max = 255) %>%
+  purrr::iwalk(~{plot(.x); title(.y)})
+textDisp=
+"Dataset Inspection's done
+------------------------------------"
+cat(textDisp)
+
+
+#Define Model----
+textDisp=
+"Define a sequential model framework
+------------------------------------"
+cat(textDisp)
+model <- keras_model_sequential() %>% 
+  layer_conv_2d(filters = 32, kernel_size = c(5,5),
+                trainable = TRUE, padding = "same",
+                input_shape = c(32, 32, 3),
+                name = "First_2D_convolution_Layer",
+                activation = "relu") %>%
+  layer_dropout(0.1,name = "First_Dropout_Layer") %>%
+  layer_max_pooling_2d(pool_size = c(2,2),trainable = TRUE,
+                       name = "First_Pooling_Layer") %>%
+  layer_conv_2d(filters  = 32, kernel_size = c(3,3),
+                trainable = TRUE,activation = "relu",
+                name = "Second_2D_convolution_Layer") %>%
+  layer_dropout(0.1,name = "Second_Dropout_Layer") %>%
+  layer_conv_2d(filters  = 32, kernel_size = c(3,3), 
+                padding = "same",trainable = TRUE,activation = "relu",
+                name = "Third_2D_convolution_Layer") %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3,3),
+                trainable = TRUE,activation = "relu",
+                name = "Fourth_2D_convolution_Layer") %>%
+  layer_dropout(0.1,name = "Third_Dropout_Layer") %>%
+  layer_flatten(name ="Flatten_Layer") %>%
+  layer_dense(512,trainable = TRUE,name = "Fully_Connected_Dense_Layer",activation = "relu") %>%
+  layer_activation("relu") %>%
+  layer_dropout(0.1,name = "Fourth_Dropout_Layer") %>%
+  layer_dense(20,trainable = TRUE,name = "Output_Layer",activation = "softmax")
+
   
-  for(j in 1:nc){
-    Ctemp=FALSE
-    for(i in 1:nr){
-      if(is.na(Intake[i,j])){
-        Ctemp=TRUE
-        CT=TRUE
-      }
-    }
-  }
-  if(Ctemp){
-    rmc=c(rmc,j)
-  }
-  rmr=as.numeric(rmr)
-  rmc=as.numeric(rmc)
-  if(RT){
-    out=Intake[-rmr,]
-  }
-  if(!RT){
-    out=Intake
-  }
-  if(CT){
-    Eout=out[,-rmc]
-  }
-  if(!CT){
-    Eout=out
-  }
-  return(Eout)
-}
-
-linfit<-function(MatIn){
-  MatIn=y
-  mapI<-data.frame()
-  for(i in 1:9){
-   i=1
-   mapI<-which(MatIn == i,arr.ind = TRUE)
-  }
-  print(mapI)
-}
+textDisp=
+"Model have been defined, local name 'model', here is the summary
+------------------------------------"
+cat(textDisp)
+#Model Summary
+summary(model)
 
 
+#Define Compiler----
+textDisp=
+"Define compiler for the model
+------------------------------------"
+cat(textDisp)
+#Define model compiler, Including loss and learning rate, not sure for R so use adam.
+model %>% compile(
+  optimizer = "adam",
+  loss = "sparse_categorical_crossentropy",
+  metrics = "accuracy"
+)
+textDisp=
+"Finished defineing compiler, training starts soon
+------------------------------------"
+cat(textDisp)
 
 
+#Training Model----
+#Start Trainning save as train_history
+#unname() shuffle order for validation
+#verbose = 2 will print out the progress of each epoch(Iteration)(0: progress only, 1: not print)
+#It takes time!
+textDisp=
+"Training starts now, it will save to train_history in enviroment.
+Viewer tab shows the current progress.
+This will take some time to process.
+The set epoch for training is 10
+------------------------------------"
+cat(textDisp)
+train_history <- model %>% 
+  fit(
+    x = cifar$train$x, y = cifar$train$y,
+    epochs = 10,
+    validation_data = unname(cifar$test),
+    verbose = 2
+  )
+textDisp=
+"Training finished, It will start to evaluat the model now.
+------------------------------------"
+cat(textDisp)
 
 
-
-
-#Main
-main<-function(PNGin){
-  rgbI=covMat(PNGin)
-  rgbI=checkDirImg(rgbI)
-  CLRMat=IdCC(rgbI)
-  #Comp=compress(CLRMat)
-  #linfit(Comp)
-  return(rgbI)
-}
-
+#Evaluation and Saving Model----
+#See the performace of the model
+#Plot the record of training and the details such as accuracy and loss.
+textDisp=
+"The histry record will be ploted in plot tab
+------------------------------------"
+cat(textDisp)
+plot(train_history)
+#Evaluation
+textDisp=
+"Evaluation will be shown in the command line.
+------------------------------------"
+cat(textDisp)
+evaluate(model, cifar$test$x, cifar$test$y, verbose = 0)
+#Supositly, there should be 3 data set for the model, Training, Validation and Test.
+#For the tesing of overfit and overtrain.
+#Since there is only two so use test for both training validation and final model evaluate
+#Save the model under "model" folder after trained(Trained model)
+#The model can be load later for transfer learning or deployment with conversion to TensorFLow Lite format.
+#This saves the file under the current working directory so check beforehead.
+textDisp=
+"Saving the trained model to the working directory under 'model' folder
+------------------------------------"
+cat(textDisp)
+save_model_tf(object = model, filepath = "model")
+textDisp=
+"Saving finished.
+Here is the end of the program.
+------------------------------------"
+cat(textDisp)
